@@ -1,0 +1,41 @@
+{
+  "name": "setori-board",
+  "version": "0.1.0",
+  "description": "ジャグリングの演技構成ボード",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node tests/peaks.test.mjs && node tests/ui.test.mjs && node tests/blocks.test.mjs",
+    "dist": "electron-builder --win",
+    "release": "electron-builder --win --publish always"
+  },
+  "build": {
+    "appId": "com.jagjag-yt.setori-board",
+    "productName": "setori-board",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "jagjag-yt",
+      "repo": "setori-board",
+      "releaseType": "release"
+    }
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans-jp": "^5.3.0",
+    "electron-updater": "^6.8.9",
+    "sortablejs": "^1.15.7"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3"
+  }
+}
