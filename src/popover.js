@@ -2,7 +2,7 @@
 import { esc, pipsHtml, fmtTime } from './ui.js';
 import { icon } from './icons.js';
 import { countLabel } from './stock.js';
-import { round1 } from './blocks.js';
+import { round1, cardStart } from './blocks.js';
 
 // カードの開始時刻がブロックの範囲内か（区切りを動かすと外れることがある）
 export const inBlock = (t, block) => t >= block.start - 0.005 && t < block.end - 0.005;
@@ -53,6 +53,7 @@ export function renderPopover() {
   const tricks = pop.ctx.tricks();
   const t = tricks.find((x) => x.id === card.trickId) ?? { name: '（削除された技）', level: 1 };
   const memoFocused = document.activeElement?.id === 'pop-memo';
+  const start = cardStart(card, block); // 先頭のカードは、決めていなければブロックの頭
   const list = pop.picking ? `
     <div class="trick-list">${[...tricks].sort((a, b) => a.level - b.level).map((x) => `
       <button class="trick-opt lv${x.level} ${x.id === card.trickId ? 'on' : ''}" data-pop="set" data-id="${x.id}">${pipsHtml(x.level)}<span>${esc(x.name)}${countLabel(x)}</span></button>`).join('')}
@@ -73,15 +74,16 @@ export function renderPopover() {
       <div class="time-row">
         <button class="btn num" data-pop="t" data-d="-1">−1.0</button>
         <button class="btn num" data-pop="t" data-d="-0.1">−0.1</button>
-        <span class="time-val num ${card.start == null ? 'unset' : ''}">${card.start == null ? '未設定' : fmtTime(card.start, 1)}</span>
+        <span class="time-val num ${start == null ? 'unset' : ''}">${start == null ? '未設定' : fmtTime(start, 1)}</span>
         <button class="btn num" data-pop="t" data-d="0.1">+0.1</button>
         <button class="btn num" data-pop="t" data-d="1">+1.0</button>
       </div>
       <div class="time-actions">
         <button class="btn" data-pop="t-now">今の再生位置にする</button>
         ${card.start == null ? '' : '<button class="link" data-pop="t-clear">解除</button>'}
+        ${card.start == null && start != null ? '<span class="sub">先頭のカードなのでブロックの頭から（自動）</span>' : ''}
       </div>
-      ${card.start != null && !inBlock(card.start, block) ? '<p class="pop-warn">ブロックの範囲外のため光りません</p>' : ''}
+      ${start != null && !inBlock(start, block) ? '<p class="pop-warn">ブロックの範囲外のため光りません</p>' : ''}
     </div>
     <div class="pop-sec">
       <label class="pop-label" for="pop-memo">メモ</label>
@@ -130,7 +132,7 @@ async function onClick(e) {
   else if (act === 't' || act === 't-now') {
     // 開始時刻：ブロックの範囲内・0.1 秒単位にそろえる。未設定から ± したときはブロックの頭を基準にする
     const { block } = ctx.find(pop.cardId);
-    const base = act === 't-now' ? ctx.now() : (card.start ?? block.start) + Number(e.target.closest('[data-d]').dataset.d);
+    const base = act === 't-now' ? ctx.now() : (cardStart(card, block) ?? block.start) + Number(e.target.closest('[data-d]').dataset.d);
     const v = round1(Math.min(block.end - 0.1, Math.max(block.start, base)));
     if (v === card.start) return;
     card.start = v;

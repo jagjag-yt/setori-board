@@ -3,13 +3,9 @@ import { esc, fmtTime, openModal } from './ui.js';
 import { icon } from './icons.js';
 import { computePeaks } from './peaks.js';
 import { updateSlot } from './update.js';
+import { blockDiff, DIFF_LV } from './blocks.js';
 
 const EXT = ['.mp3', '.m4a', '.wav', '.ogg'];
-
-// ブロック内のカードの最高難易度（カードが無ければ 0）
-export function maxLevel(block, trickMap) {
-  return block.cards.reduce((m, c) => Math.max(m, trickMap.get(c.trickId)?.level ?? 0), 0);
-}
 
 const fmtDate = (iso) => new Date(iso).toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -17,17 +13,23 @@ export function listView(state) {
   const dark = state.settings.theme === 'dark';
   const projects = [...state.projects].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
-  const rows = projects.map((p) => `
+  const rows = projects.map((p) => {
+    // 難易度の流れ：ブロックの長さに比例した区間を、ブロックの難易度の色（安定＝緑、普通＝青、挑戦＝橙）で塗る
+    const flow = p.blocks.map((b) =>
+      `<span style="flex:${b.end - b.start};background:var(--lv${DIFF_LV[blockDiff(b)]}-pip)"></span>`).join('');
+    return `
       <button class="row" data-id="${p.id}">
         <span class="row-name"><span class="name">${esc(p.name)}</span><span class="sub">${esc(p.originalFileName)}</span></span>
         <span class="num">${fmtTime(p.duration)}</span>
         <span class="num">${p.blocks.length}</span>
+        <span class="flow">${flow}</span>
         <span class="sub">${fmtDate(p.updatedAt)}</span>
-      </button>`).join('');
+      </button>`;
+  }).join('');
 
   const body = projects.length
     ? `<div class="table">
-        <div class="row head"><span>名前</span><span>長さ</span><span>ブロック</span><span>最終更新</span></div>
+        <div class="row head"><span>名前</span><span>長さ</span><span>ブロック</span><span>難易度の流れ</span><span>最終更新</span></div>
         ${rows}</div>`
     : `<div class="empty">
         <p>最初の演目を作りましょう。音楽ファイルを選ぶと、曲全体が 1 つのブロックとして用意されます。</p>

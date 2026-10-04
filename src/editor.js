@@ -5,9 +5,8 @@ import { stockColumnsHtml, filterChips, bindStock, editTrick, trickCount } from 
 import { openPopover, closePopover, renderPopover, placePopover, popoverCardId, inBlock } from './popover.js';
 import { updateSlot } from './update.js';
 import { icon } from './icons.js';
-import { maxLevel } from './list.js';
 import { isSaved, save } from './store.js';
-import { splitAt, moveBoundary, removeBoundary, MIN_LEN } from './blocks.js';
+import { splitAt, moveBoundary, removeBoundary, MIN_LEN, BLOCK_DIFFS, blockDiff, DIFF_LV, cardStart } from './blocks.js';
 
 const RATES = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -102,10 +101,9 @@ export function editorView(dark) {
   const dur = p.duration;
   const pct = (t) => (t / dur) * 100;
 
-  // 上段：ブロック区間（最高難易度の色で塗る）
+  // 上段：ブロック区間（ブロックの難易度の色で塗る：安定＝緑、普通＝青、挑戦＝橙）
   const segs = p.blocks.map((bk, i) => {
-    const lv = maxLevel(bk, ed.trickMap);
-    return `<button class="tl-seg ${lv ? 'lv' + lv : 'lv0'} ${i === ed.cur ? 'now' : ''}" data-act="block-play" data-i="${i}"
+    return `<button class="tl-seg lv${DIFF_LV[blockDiff(bk)]} ${i === ed.cur ? 'now' : ''}" data-act="block-play" data-i="${i}"
       title="${esc(bk.name)} の頭から再生" style="left:${pct(bk.start)}%;width:${pct(bk.end - bk.start)}%"><span>${esc(bk.name)}</span></button>`;
   }).join('');
   // 下段：全体波形とブロック境界
@@ -243,11 +241,12 @@ function cardHtml(c, b) {
   const t = ed.trickMap.get(c.trickId) ?? { name: '（削除された技）', level: 1 };
   const count = trickCount(t); // 個数は技ストックの値（null ＝ 個数を設定しない技）
   // 開始時刻（決めていれば表示。ブロックの範囲外なら取り消し線）
-  const time = c.start == null ? '' :
-    `<span class="card-time num ${inBlock(c.start, b) ? '' : 'out'}">${fmtTime(c.start, 1)}〜</span>`;
+  const start = cardStart(c, b);
+  const time = start == null ? '' :
+    `<span class="card-time num ${inBlock(start, b) ? '' : 'out'}">${fmtTime(start, 1)}〜</span>`;
   // カードの開始時刻から再生するボタン（カーソルを乗せると出る）。開始時刻がブロック内にあるカードだけ
-  const play = c.start != null && inBlock(c.start, b)
-    ? `<button class="card-play" data-act="card-play" data-t="${c.start}">${icon('play')}頭から再生</button>` : '';
+  const play = start != null && inBlock(start, b)
+    ? `<button class="card-play" data-act="card-play" data-t="${start}">${icon('play')}頭から再生</button>` : '';
   return `
     <div class="card lv${t.level} ${c.id === ed.newCard ? 'card-new' : ''} ${c.id === popoverCardId() ? 'selected' : ''}"
       data-card="${c.id}" data-act="card" tabindex="0" aria-label="${esc(t.name)}${count == null ? '' : ` ${count}個`}（クリックで編集）">
@@ -257,10 +256,6 @@ function cardHtml(c, b) {
       ${play}
     </div>`;
 }
-
-// ブロックの難易度（1 安定・2 普通・3 挑戦）。決めていないブロックは「普通」
-export const BLOCK_DIFFS = ['', '安定', '普通', '挑戦'];
-const blockDiff = (b) => b.diff ?? 2;
 
 function blockHtml(b, i) {
   const d = blockDiff(b);
@@ -546,7 +541,8 @@ function update() {
   if (refs.lane) {
     let id = null, best = -1;
     for (const c of cb.cards) {
-      if (c.start != null && inBlock(c.start, cb) && c.start <= t + 0.005 && c.start > best) { best = c.start; id = c.id; }
+      const st = cardStart(c, cb);
+      if (st != null && inBlock(st, cb) && st <= t + 0.005 && st > best) { best = st; id = c.id; }
     }
     if (id !== ed.playingCard) {
       refs.lane.querySelector('.card.playing')?.classList.remove('playing');

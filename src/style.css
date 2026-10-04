@@ -219,14 +219,15 @@ kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px
 .input.search{width:240px;height:34px}
 .drawer-head .btn{height:34px}
 .drawer-head .btn.icon{width:34px}
-.drawer-body{flex:1;min-height:0;overflow:auto;padding:4px 24px 16px}
+.drawer-body{flex:1;min-height:0;overflow:auto;padding:4px 24px 16px;display:flex;flex-direction:column}
 .stock-empty{color:var(--text2);margin:16px 0}
-.stock-cols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
-.stock-col{border-radius:10px;background:var(--bg);border:1px solid var(--line);padding:10px;min-height:120px}
-.col-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-weight:600;color:var(--c-tx)}
+.stock-cols{flex:1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+/* 列全体をチップの置き場所にする：見出しはチップの並びの上に重ねて表示するだけ（マウスは下の並びに届く） */
+.stock-col{position:relative;border-radius:10px;background:var(--bg);border:1px solid var(--line);min-height:120px;display:flex;flex-direction:column}
+.col-head{position:absolute;top:10px;left:10px;right:10px;pointer-events:none;display:flex;align-items:center;gap:8px;font-weight:600;color:var(--c-tx)}
 [data-theme="light"] .col-head{color:var(--text)}
 .col-count{margin-left:auto;color:var(--text3);font-size:13px}
-.chips{display:flex;flex-wrap:wrap;gap:6px;min-height:40px}
+.chips{flex:1;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;min-height:40px;padding:44px 10px 10px;border-radius:10px}
 .chip{display:flex;align-items:center;gap:6px;height:40px;padding:0 12px 0 6px;border-radius:6px;border:1px solid var(--c-bd);
   background:var(--c-bg);color:var(--c-tx);font-weight:600;cursor:grab;max-width:100%;
   transition:border-color 160ms var(--ease-out)}
@@ -387,7 +388,7 @@ textarea.input{height:auto;padding:8px 12px;resize:none;line-height:1.5}
 .list-title h1{font-size:28px;font-weight:600;margin:0}
 .list-title .count{color:var(--text2);font-size:15px}
 .table{border:1px solid var(--line);border-radius:14px;background:var(--s1);overflow:hidden}
-.row{display:grid;grid-template-columns:minmax(0,1fr) 88px 88px 150px;gap:24px;align-items:center;
+.row{display:grid;grid-template-columns:minmax(0,1fr) 88px 88px 240px 150px;gap:24px;align-items:center;
   width:100%;height:88px;padding:0 24px;border:0;border-top:1px solid var(--line);background:none;color:inherit;
   font:inherit;text-align:left;cursor:pointer;transition:background-color 160ms var(--ease-out)}
 .row:hover{background:var(--s2)}
@@ -396,6 +397,7 @@ textarea.input{height:auto;padding:8px 12px;resize:none;line-height:1.5}
 .row-name{display:flex;flex-direction:column;min-width:0}
 .row-name .name{font-size:17px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row-name .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flow{display:flex;gap:2px;height:12px;border-radius:4px;overflow:hidden}
 .empty{border:1.5px dashed var(--line2);border-radius:14px;padding:48px;text-align:center;color:var(--text2)}
 .empty p{margin:0 0 16px}
 

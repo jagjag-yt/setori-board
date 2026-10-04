@@ -51,9 +51,7 @@ function trickDialog(stock, trick) {
       <div class="field tk-count">
         <label class="switch"><input type="checkbox" id="tk-has-count" ${count0 == null ? '' : 'checked'}><span class="switch-track" aria-hidden="true"></span>個数を設定する</label>
         <div class="stepper" ${count0 == null ? 'hidden' : ''}>
-          <button class="btn icon" data-step="-1" aria-label="1 個減らす">−</button>
-          <input id="tk-count" class="input num" type="number" min="1" max="9" step="1" value="${count0 ?? DEFAULT_COUNT}" aria-label="個数">
-          <button class="btn icon" data-step="1" aria-label="1 個増やす">+</button>
+          <input id="tk-count" class="input num" type="number" min="1" max="9" step="1" value="${count0 ?? DEFAULT_COUNT}" aria-label="個数"><span>個</span>
         </div></div>
       ${trick ? '<p class="sub">技名・難易度・個数の変更は、全プロジェクトのカードに反映されます。</p>' : ''}
       <p class="err"></p>
@@ -91,12 +89,6 @@ function trickDialog(stock, trick) {
       if (opt) {
         level = Number(opt.dataset.lv);
         m.el.querySelectorAll('.lv-opt').forEach((b) => b.setAttribute('aria-pressed', b === opt));
-      }
-      const step = e.target.closest('[data-step]');
-      if (step) {
-        const n = Number(countInput.value) || DEFAULT_COUNT;
-        countInput.value = Math.min(9, Math.max(1, Math.round(n) + Number(step.dataset.step)));
-        err.textContent = '';
       }
       if (e.target.closest('[data-act=ok]')) ok();
     });
