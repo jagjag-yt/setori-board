@@ -15,28 +15,19 @@ const fmtDate = (iso) => new Date(iso).toLocaleString('ja-JP', { dateStyle: 'sho
 
 export function listView(state) {
   const dark = state.settings.theme === 'dark';
-  const trickMap = new Map(state.stock.tricks.map((t) => [t.id, t]));
   const projects = [...state.projects].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
-  const rows = projects.map((p) => {
-    // 難易度の流れ：ブロックの長さに比例した区間を、最高難易度の色で塗る
-    const flow = p.blocks.map((b) => {
-      const lv = maxLevel(b, trickMap);
-      return `<span style="flex:${b.end - b.start};background:${lv ? `var(--lv${lv}-pip)` : 'var(--line)'}"></span>`;
-    }).join('');
-    return `
+  const rows = projects.map((p) => `
       <button class="row" data-id="${p.id}">
         <span class="row-name"><span class="name">${esc(p.name)}</span><span class="sub">${esc(p.originalFileName)}</span></span>
         <span class="num">${fmtTime(p.duration)}</span>
         <span class="num">${p.blocks.length}</span>
-        <span class="flow">${flow}</span>
         <span class="sub">${fmtDate(p.updatedAt)}</span>
-      </button>`;
-  }).join('');
+      </button>`).join('');
 
   const body = projects.length
     ? `<div class="table">
-        <div class="row head"><span>名前</span><span>長さ</span><span>ブロック</span><span>難易度の流れ</span><span>最終更新</span></div>
+        <div class="row head"><span>名前</span><span>長さ</span><span>ブロック</span><span>最終更新</span></div>
         ${rows}</div>`
     : `<div class="empty">
         <p>最初の演目を作りましょう。音楽ファイルを選ぶと、曲全体が 1 つのブロックとして用意されます。</p>

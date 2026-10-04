@@ -138,11 +138,22 @@ svg.ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;strok
 .lane{flex:1;min-height:0;position:relative;display:flex;align-items:center;gap:12px;padding:16px 24px;
   overflow-x:auto;overflow-y:hidden}
 .lane::after{content:'';flex:0 0 12px} /* 右端の余白（スクロール時に 24px 空ける） */
-.block{flex-shrink:0;min-width:248px;padding:16px;border-radius:12px;background:var(--s1);border:1px solid var(--line);
+.block{flex-shrink:0;min-width:248px;padding:16px;border-radius:12px;background:var(--b-bg);border:1px solid var(--b-bd);cursor:pointer;
   transition:border-color 180ms var(--ease-out),background-color 180ms var(--ease-out),box-shadow 180ms var(--ease-out)}
-.block.now{background:var(--s2);border-color:var(--acc);box-shadow:0 0 0 1px var(--acc),0 0 0 6px var(--acc-weak)}
-.bk-head{position:relative;display:flex;align-items:center;gap:12px;width:100%;padding:0;border:0;background:none;
+/* ブロックの難易度：領域を色付けする（安定＝緑、普通＝青、挑戦＝橙）。カードと見分けられるよう少し淡くする */
+.block.d1{--b-bg:color-mix(in srgb,var(--lv2-bg) 75%,var(--s1));--b-bd:var(--lv2-bd)}
+.block.d2{--b-bg:color-mix(in srgb,var(--lv3-bg) 75%,var(--s1));--b-bd:var(--lv3-bd)}
+.block.d3{--b-bg:color-mix(in srgb,var(--lv5-bg) 75%,var(--s1));--b-bd:var(--lv5-bd)}
+.block:not(.now):hover{box-shadow:var(--sh-1)}
+.block.now{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc),0 0 0 6px var(--acc-weak)}
+.bk-top{display:flex;align-items:flex-start;gap:8px}
+.bk-head{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:0;border:0;background:none;
   color:inherit;font:inherit;text-align:left;cursor:pointer}
+.bk-play{flex-shrink:0;display:flex;align-items:center;gap:4px;height:28px;padding:0 10px;border-radius:999px;
+  border:1px solid var(--line2);background:transparent;color:var(--text2);font:600 13px var(--font-ui);cursor:pointer;
+  transition:background-color 160ms var(--ease-out),color 160ms var(--ease-out),border-color 160ms var(--ease-out)}
+.bk-play svg.ic{width:12px;height:12px}
+.bk-play:hover,.block.now .bk-play{background:var(--acc-weak);border-color:var(--acc-line);color:var(--acc-tx)}
 .bk-no{flex-shrink:0;min-width:36px;height:28px;padding:0 6px;border-radius:6px;background:var(--s3);color:var(--text2);
   font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;
   transition:background-color 180ms var(--ease-out),color 180ms var(--ease-out)}
@@ -150,12 +161,7 @@ svg.ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;strok
 .bk-title{display:flex;flex-direction:column;min-width:0}
 .bk-name{font-size:18px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bk-time{font-size:14px;color:var(--text2);white-space:nowrap}
-.bk-len{margin-left:10px;color:var(--text3)}
-.bk-hint{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:4px;
-  padding:4px 10px;border-radius:999px;background:var(--acc-weak);color:var(--acc-tx);font-size:13px;font-weight:600;
-  opacity:0;transition:opacity 160ms var(--ease-out);pointer-events:none}
-.bk-hint svg.ic{width:12px;height:12px}
-.bk-head:hover .bk-hint,.bk-head:focus-visible .bk-hint{opacity:1}
+.bk-len{margin-left:10px;color:var(--text2)}
 .bk-prog{height:4px;margin:12px 0 14px;border-radius:2px;background:var(--line);overflow:hidden}
 .bk-prog i{display:block;height:100%;background:var(--acc);transform-origin:left;transform:scaleX(0)}
 
@@ -241,6 +247,19 @@ body.dragging *{cursor:grabbing !important}
 .card-new{animation:cardin 180ms var(--ease-out)}
 @keyframes cardin{from{opacity:0;scale:.96}}
 
+/* カード：再生中の今のカード（開始時刻で決まる） */
+.card.playing,.card.playing:hover{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc),0 0 22px 4px var(--acc-weak)}
+.card-time{font-size:12px;font-weight:600;align-self:center}
+/* カードの「頭から再生」：カーソルを乗せたとき（またはキーボードで中にいるとき）だけ出す */
+.card{position:relative}
+.card-play{position:absolute;right:8px;bottom:8px;display:flex;align-items:center;gap:4px;height:26px;padding:0 10px;
+  border-radius:999px;border:1px solid var(--acc-line);background:var(--s3);color:var(--acc-tx);font:600 12px var(--font-ui);
+  cursor:pointer;opacity:0;transition:opacity 160ms var(--ease-out)}
+.card-play svg.ic{width:11px;height:11px}
+.card:hover .card-play,.card:focus-within .card-play,.card-play:focus-visible{opacity:1}
+body.dragging .card-play{display:none}
+.card-time.out{text-decoration:line-through}
+
 /* カード：選択中（編集中） */
 .card.selected,.card.selected:hover{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--acc)}
 
@@ -259,9 +278,7 @@ body.dragging *{cursor:grabbing !important}
 .pop-head b{color:var(--text);font-weight:600}
 .pop-head .btn.icon{width:32px;height:32px}
 .pop-sec{margin-bottom:14px}
-.pop-row{display:flex;align-items:center;justify-content:space-between}
 .pop-label{display:block;font-size:13px;color:var(--text2);margin-bottom:6px}
-.pop-row .pop-label{margin:0}
 .trick-btn,.trick-opt{display:flex;align-items:center;gap:10px;width:100%;height:44px;padding:0 12px;border-radius:8px;
   border:1.5px solid var(--c-bd);background:var(--c-bg);color:var(--c-tx);font:600 16px var(--font-ui);cursor:pointer;text-align:left}
 .trick-btn>span:not(.pips),.trick-opt>span:not(.pips){flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -270,6 +287,13 @@ body.dragging *{cursor:grabbing !important}
 .trick-opt{height:36px;font-size:14px}
 .trick-opt.on{box-shadow:0 0 0 2px var(--acc)}
 .pop-note{margin:6px 0 0;font-size:12px;color:var(--text2)}
+.time-row{display:flex;align-items:center;gap:6px}
+.time-row .btn{height:34px;padding:0 8px;font-size:13px}
+.time-val{flex:1;text-align:center;font-size:22px;font-weight:600}
+.time-val.unset{font:500 15px var(--font-ui);color:var(--text2)}
+.time-actions{display:flex;align-items:center;gap:16px;margin-top:8px}
+.time-actions .btn{height:34px}
+.pop-warn{margin:6px 0 0;font-size:13px;color:var(--danger)}
 .link{padding:0;border:0;background:none;color:var(--acc-tx);font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .link.danger{color:var(--danger);font-size:14px;font-weight:600}
 .stepper{display:flex;align-items:center;gap:12px}
@@ -283,14 +307,34 @@ textarea.input{height:auto;padding:8px 12px;resize:none;line-height:1.5}
 .lv-opt{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border-radius:8px;border:1.5px solid var(--c-bd);
   background:var(--c-bg);color:var(--c-tx);font:600 13px var(--font-ui);cursor:pointer}
 .lv-opt[aria-pressed="true"]{box-shadow:0 0 0 2px var(--s3),0 0 0 4px var(--acc)}
+/* ブロックの難易度：安定＝緑、普通＝青、挑戦＝橙 */
+.diff-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.diff-opt{height:44px;border-radius:8px;border:1.5px solid var(--c-bd);background:var(--c-bg);color:var(--c-tx);font:600 15px var(--font-ui);cursor:pointer}
+.diff-opt.d1{--c-bg:var(--lv2-bg);--c-bd:var(--lv2-bd);--c-tx:var(--lv2-tx)}
+.diff-opt.d2{--c-bg:var(--lv3-bg);--c-bd:var(--lv3-bd);--c-tx:var(--lv3-tx)}
+.diff-opt.d3{--c-bg:var(--lv5-bg);--c-bd:var(--lv5-bd);--c-tx:var(--lv5-tx)}
+.diff-opt[aria-pressed="true"]{box-shadow:0 0 0 2px var(--s3),0 0 0 4px var(--acc)}
 .warn-text{color:var(--danger);font-weight:600}
+.stepper .input.num{width:64px;text-align:center;font-size:20px;font-weight:600;padding:0 4px}
+.stepper[hidden]{display:none}
+.tk-count .stepper{margin-top:10px}
+/* スイッチ（チェックボックスを見た目だけ切り替えスイッチにする） */
+.switch,.field .switch{display:inline-flex;align-items:center;gap:10px;margin:0;color:var(--text);font-size:15px;cursor:pointer}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.switch-track{position:relative;width:40px;height:22px;border-radius:999px;background:var(--text3);flex-shrink:0;
+  transition:background-color 160ms var(--ease-out)}
+.switch-track::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--s3);
+  box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform 160ms var(--ease-out)}
+.switch input:checked+.switch-track{background:var(--acc)}
+.switch input:checked+.switch-track::after{transform:translateX(18px)}
+.switch input:focus-visible+.switch-track{outline:2px solid var(--acc);outline-offset:2px}
 .stock-dialog-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
 .stock-dialog-head h2{margin:0}
 .stock-dialog-body{max-height:60vh;overflow:auto}
 
 /* カード */
 .cards{display:flex;gap:10px}
-.cards-empty{width:188px;height:164px;border:1.5px dashed var(--line2);border-radius:8px;color:var(--text3);
+.cards-empty{width:188px;height:164px;border:1.5px dashed var(--line2);border-radius:8px;color:var(--text2);
   font-size:13px;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px}
 .card{flex-shrink:0;width:188px;height:164px;padding:12px 14px;border-radius:8px;border:1.5px solid var(--c-bd);
   background:var(--c-bg);color:var(--c-tx);display:flex;flex-direction:column;cursor:grab;
@@ -343,7 +387,7 @@ textarea.input{height:auto;padding:8px 12px;resize:none;line-height:1.5}
 .list-title h1{font-size:28px;font-weight:600;margin:0}
 .list-title .count{color:var(--text2);font-size:15px}
 .table{border:1px solid var(--line);border-radius:14px;background:var(--s1);overflow:hidden}
-.row{display:grid;grid-template-columns:minmax(0,1fr) 88px 88px 240px 150px;gap:24px;align-items:center;
+.row{display:grid;grid-template-columns:minmax(0,1fr) 88px 88px 150px;gap:24px;align-items:center;
   width:100%;height:88px;padding:0 24px;border:0;border-top:1px solid var(--line);background:none;color:inherit;
   font:inherit;text-align:left;cursor:pointer;transition:background-color 160ms var(--ease-out)}
 .row:hover{background:var(--s2)}
@@ -352,7 +396,6 @@ textarea.input{height:auto;padding:8px 12px;resize:none;line-height:1.5}
 .row-name{display:flex;flex-direction:column;min-width:0}
 .row-name .name{font-size:17px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row-name .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.flow{display:flex;gap:2px;height:12px;border-radius:4px;overflow:hidden}
 .empty{border:1.5px dashed var(--line2);border-radius:14px;padding:48px;text-align:center;color:var(--text2)}
 .empty p{margin:0 0 16px}
 

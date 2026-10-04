@@ -1,9 +1,15 @@
 // カード編集ポップオーバー。カードの直下に矢印付きで開く（下に収まらなければ上へ反転）
-import { esc, pipsHtml } from './ui.js';
+import { esc, pipsHtml, fmtTime } from './ui.js';
 import { icon } from './icons.js';
+import { countLabel } from './stock.js';
+import { round1 } from './blocks.js';
+
+// カードの開始時刻がブロックの範囲内か（区切りを動かすと外れることがある）
+export const inBlock = (t, block) => t >= block.start - 0.005 && t < block.end - 0.005;
 
 // pop = { el, cardId, picking, ctx }
-// ctx: find(id) → { card, block } | null, tricks() → 技の配列, commit() 変更を記録して保存,
+// 編集できるのは技・開始時刻・メモ。個数は技ストックの値を表示する
+// ctx: find(id) → { card, block } | null, tricks() → 技の配列, now() → 今の再生位置, commit() 変更を記録して保存,
 //      saveOnly() 記録せず保存（メモ入力中）, remove(id), editTrick(id), onClose()
 let pop = null;
 
@@ -49,7 +55,7 @@ export function renderPopover() {
   const memoFocused = document.activeElement?.id === 'pop-memo';
   const list = pop.picking ? `
     <div class="trick-list">${[...tricks].sort((a, b) => a.level - b.level).map((x) => `
-      <button class="trick-opt lv${x.level} ${x.id === card.trickId ? 'on' : ''}" data-pop="set" data-id="${x.id}">${pipsHtml(x.level)}<span>${esc(x.name)}</span></button>`).join('')}
+      <button class="trick-opt lv${x.level} ${x.id === card.trickId ? 'on' : ''}" data-pop="set" data-id="${x.id}">${pipsHtml(x.level)}<span>${esc(x.name)}${countLabel(x)}</span></button>`).join('')}
     </div>` : '';
   pop.el.innerHTML = `
     <i class="pop-arrow"></i>
@@ -60,19 +66,26 @@ export function renderPopover() {
       <div class="pop-label">技</div>
       <button class="trick-btn lv${t.level}" data-pop="pick" aria-expanded="${pop.picking}">${pipsHtml(t.level)}<span>${esc(t.name)}</span>${icon(pop.picking ? 'chevronUp' : 'chevronDown')}</button>
       ${list}
-      <p class="pop-note">技名・難易度の変更は全プロジェクトに反映 · <button class="link" data-pop="stock-edit">技ストックで編集</button></p>
-    </div>
-    <div class="pop-sec pop-row">
-      <div class="pop-label">個数</div>
-      <div class="stepper">
-        <button class="btn icon" data-pop="dec" aria-label="1 個減らす">−</button>
-        <span class="num">${card.count}</span>
-        <button class="btn icon" data-pop="inc" aria-label="1 個増やす">+</button>
-      </div>
+      <p class="pop-note"><button class="link" data-pop="stock-edit">技ストックで編集</button></p>
     </div>
     <div class="pop-sec">
-      <label class="pop-label" for="pop-memo">メモ <span class="sub">このカードだけ</span></label>
-      <textarea id="pop-memo" class="input" rows="3" placeholder="腕を大きく見せる">${esc(card.memo)}</textarea>
+      <div class="pop-label">開始時刻</div>
+      <div class="time-row">
+        <button class="btn num" data-pop="t" data-d="-1">−1.0</button>
+        <button class="btn num" data-pop="t" data-d="-0.1">−0.1</button>
+        <span class="time-val num ${card.start == null ? 'unset' : ''}">${card.start == null ? '未設定' : fmtTime(card.start, 1)}</span>
+        <button class="btn num" data-pop="t" data-d="0.1">+0.1</button>
+        <button class="btn num" data-pop="t" data-d="1">+1.0</button>
+      </div>
+      <div class="time-actions">
+        <button class="btn" data-pop="t-now">今の再生位置にする</button>
+        ${card.start == null ? '' : '<button class="link" data-pop="t-clear">解除</button>'}
+      </div>
+      ${card.start != null && !inBlock(card.start, block) ? '<p class="pop-warn">ブロックの範囲外のため光りません</p>' : ''}
+    </div>
+    <div class="pop-sec">
+      <label class="pop-label" for="pop-memo">メモ</label>
+      <textarea id="pop-memo" class="input" rows="3">${esc(card.memo)}</textarea>
     </div>
     <div class="pop-foot">
       <button class="link danger" data-pop="delete">このカードを削除</button>
@@ -114,17 +127,22 @@ async function onClick(e) {
   if (act === 'close') { closePopover(); return; }
   if (act === 'pick') pop.picking = !pop.picking;
   else if (act === 'set') { card.trickId = e.target.closest('[data-id]').dataset.id; pop.picking = false; ctx.commit(); }
-  else if (act === 'inc' || act === 'dec') {
-    const n = Math.min(9, Math.max(1, card.count + (act === 'inc' ? 1 : -1)));
-    if (n === card.count) return;
-    card.count = n;
+  else if (act === 't' || act === 't-now') {
+    // 開始時刻：ブロックの範囲内・0.1 秒単位にそろえる。未設定から ± したときはブロックの頭を基準にする
+    const { block } = ctx.find(pop.cardId);
+    const base = act === 't-now' ? ctx.now() : (card.start ?? block.start) + Number(e.target.closest('[data-d]').dataset.d);
+    const v = round1(Math.min(block.end - 0.1, Math.max(block.start, base)));
+    if (v === card.start) return;
+    card.start = v;
     ctx.commit();
   }
+  else if (act === 't-clear') { delete card.start; ctx.commit(); }
   else if (act === 'stock-edit') { await ctx.editTrick(card.trickId); }
   else if (act === 'delete') { const id = pop.cardId; closePopover(); ctx.remove(id); return; }
   renderPopover();
   // 押したボタンにフォーカスを戻す（キーボードで続けて押せるように）
-  pop?.el.querySelector(`[data-pop="${act}"]`)?.focus();
+  const d = e.target.closest('[data-d]')?.dataset.d;
+  pop?.el.querySelector(`[data-pop="${act}"]${d ? `[data-d="${d}"]` : ''}`)?.focus();
 }
 
 // 外側をクリックしたら閉じる。カードのクリックは editor.js 側で「別のカードを開く」になる

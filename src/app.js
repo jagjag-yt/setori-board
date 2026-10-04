@@ -4,7 +4,7 @@ import { esc, confirmDialog, promptDialog } from './ui.js';
 import { listView, createDialog, dropHandler } from './list.js';
 import { stockDialog } from './stock.js';
 import { paintUpdate } from './update.js';
-import { openEditor, closeEditor, editorView, mountEditor, editorAction, editorDblClick, editorKey, togglePlay, saveStatusHtml } from './editor.js';
+import { openEditor, closeEditor, editorView, mountEditor, editorAction, editorKey, togglePlay, saveStatusHtml } from './editor.js';
 
 const state = {
   settings: { theme: 'dark' },
@@ -107,10 +107,6 @@ window.addEventListener('keyup', (e) => {
 setSaveStatusListener((saved) => {
   const el = document.getElementById('save-status');
   if (el) el.innerHTML = saveStatusHtml(saved);
-});
-
-$app.addEventListener('dblclick', async (e) => {
-  if (state.screen === 'editor' && await editorDblClick(e)) render();
 });
 
 $app.addEventListener('contextmenu', (e) => {

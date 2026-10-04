@@ -3,6 +3,12 @@ import { esc, openModal, confirmDialog, newId, pipsHtml, LEVEL_NAMES } from './u
 import { icon } from './icons.js';
 import { save } from './store.js';
 
+// 技の個数。null ＝ 個数を設定しない技。個数を決める前に登録した技（count が無い）は 3
+export const DEFAULT_COUNT = 3;
+export const trickCount = (t) => (t.count === undefined ? DEFAULT_COUNT : t.count);
+// 表示用の「 (3)」（半角）。個数を設定しない技は空
+export const countLabel = (t) => (trickCount(t) == null ? '' : ` (${trickCount(t)})`);
+
 // 難易度ごとの 5 列。チップはドラッグでブロックへ配置できる（ドラッグの設定は editor.js）
 export function stockColumnsHtml(stock, query = '') {
   if (!stock.tricks.length) {
@@ -12,8 +18,8 @@ export function stockColumnsHtml(stock, query = '') {
   return `<div class="stock-cols">${[1, 2, 3, 4, 5].map((lv) => {
     const tricks = stock.tricks.filter((t) => t.level === lv);
     const chips = tricks.map((t) => `
-      <div class="chip lv${lv} ${q && !t.name.toLowerCase().includes(q) ? 'hidden' : ''}" data-trick="${t.id}"
-        title="ドラッグでブロックへ配置／ダブルクリックで編集">${icon('grip')}<span>${esc(t.name)}</span></div>`).join('');
+      <div class="chip lv${lv} ${q && !t.name.toLowerCase().includes(q) ? 'hidden' : ''}" data-trick="${t.id}" data-name="${esc(t.name)}"
+        title="ドラッグでブロックへ配置／ダブルクリックで編集">${icon('grip')}<span>${esc(t.name)}${countLabel(t)}</span></div>`).join('');
     return `
       <div class="stock-col lv${lv}">
         <div class="col-head">${pipsHtml(lv)}<span>Lv.${lv}</span><span class="sub">${LEVEL_NAMES[lv]}</span><span class="col-count num">${tricks.length}</span></div>
@@ -26,14 +32,15 @@ export function stockColumnsHtml(stock, query = '') {
 export function filterChips(root, query) {
   const q = query.trim().toLowerCase();
   for (const chip of root.querySelectorAll('.chip')) {
-    chip.classList.toggle('hidden', !!q && !chip.textContent.toLowerCase().includes(q));
+    chip.classList.toggle('hidden', !!q && !chip.dataset.name.toLowerCase().includes(q)); // 個数 "(3)" は検索に含めない
   }
 }
 
-// 技の追加・編集ダイアログ。{ name, level } かキャンセルなら null を返す
+// 技の追加・編集ダイアログ。{ name, level, count } かキャンセルなら null を返す
 function trickDialog(stock, trick) {
   return new Promise((resolve) => {
     let level = trick?.level ?? 1;
+    const count0 = trick ? trickCount(trick) : DEFAULT_COUNT; // null なら「個数を設定しない」
     const m = openModal(`
       <h2>${trick ? '技を編集' : '技を追加'}</h2>
       <div class="field"><label for="tk-name">技名</label><input id="tk-name" class="input" value="${esc(trick?.name ?? '')}" placeholder="ミルズメス" autofocus></div>
@@ -41,19 +48,42 @@ function trickDialog(stock, trick) {
         <div class="lv-pick">${[1, 2, 3, 4, 5].map((lv) =>
           `<button class="lv-opt lv${lv}" data-lv="${lv}" aria-pressed="${lv === level}">${pipsHtml(lv)}<span>Lv.${lv} ${LEVEL_NAMES[lv]}</span></button>`).join('')}
         </div></div>
-      ${trick ? '<p class="sub">技名・難易度の変更は、全プロジェクトのカードに反映されます。</p>' : ''}
+      <div class="field tk-count">
+        <label class="switch"><input type="checkbox" id="tk-has-count" ${count0 == null ? '' : 'checked'}><span class="switch-track" aria-hidden="true"></span>個数を設定する</label>
+        <div class="stepper" ${count0 == null ? 'hidden' : ''}>
+          <button class="btn icon" data-step="-1" aria-label="1 個減らす">−</button>
+          <input id="tk-count" class="input num" type="number" min="1" max="9" step="1" value="${count0 ?? DEFAULT_COUNT}" aria-label="個数">
+          <button class="btn icon" data-step="1" aria-label="1 個増やす">+</button>
+        </div></div>
+      ${trick ? '<p class="sub">技名・難易度・個数の変更は、全プロジェクトのカードに反映されます。</p>' : ''}
       <p class="err"></p>
       <div class="actions"><button class="btn" data-act="cancel">キャンセル</button>
       <button class="btn primary" data-act="ok">${trick ? '保存' : '追加'}</button></div>`,
       { width: 520, onClose: () => resolve(null) });
     const name = m.el.querySelector('#tk-name');
+    const countInput = m.el.querySelector('#tk-count');
+    const hasCount = m.el.querySelector('#tk-has-count');
     const err = m.el.querySelector('.err');
     name.select();
+    hasCount.addEventListener('change', () => {
+      m.el.querySelector('.tk-count .stepper').hidden = !hasCount.checked;
+      err.textContent = '';
+    });
     const ok = () => {
       const v = name.value.trim();
+      const count = hasCount.checked ? Number(countInput.value) : null;
       if (!v) { err.textContent = '技名を入力してください'; return; }
-      if (stock.tricks.some((t) => t !== trick && t.name === v)) { err.textContent = '同じ名前の技がすでにあります'; return; }
-      resolve({ name: v, level });
+      if (count !== null && (!Number.isInteger(count) || count < 1 || count > 9)) {
+        err.textContent = '個数は 1〜9 の数字で入力してください';
+        countInput.focus();
+        return;
+      }
+      // 同じ技名でも個数が違えば別の技として登録できる（「個数なし」も 1 つの値として比べる）
+      if (stock.tricks.some((t) => t !== trick && t.name === v && trickCount(t) === count)) {
+        err.textContent = '同じ技名・個数の技がすでにあります';
+        return;
+      }
+      resolve({ name: v, level, count });
       m.close();
     };
     m.el.addEventListener('click', (e) => {
@@ -62,10 +92,18 @@ function trickDialog(stock, trick) {
         level = Number(opt.dataset.lv);
         m.el.querySelectorAll('.lv-opt').forEach((b) => b.setAttribute('aria-pressed', b === opt));
       }
+      const step = e.target.closest('[data-step]');
+      if (step) {
+        const n = Number(countInput.value) || DEFAULT_COUNT;
+        countInput.value = Math.min(9, Math.max(1, Math.round(n) + Number(step.dataset.step)));
+        err.textContent = '';
+      }
       if (e.target.closest('[data-act=ok]')) ok();
     });
-    name.addEventListener('input', () => { err.textContent = ''; });
-    name.addEventListener('keydown', (e) => { if (e.key === 'Enter') ok(); });
+    for (const input of [name, countInput]) {
+      input.addEventListener('input', () => { err.textContent = ''; });
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') ok(); });
+    }
   });
 }
 
@@ -93,7 +131,7 @@ export async function deleteTrick(stock, projects, id) {
   const total = used.reduce((a, b) => a + b, 0);
   const where = used.filter(Boolean).length;
   const ok = await confirmDialog('技を削除',
-    `「${esc(t.name)}」を技ストックから削除します。` +
+    `「${esc(t.name)}${countLabel(t)}」を技ストックから削除します。` +
     (total ? `<br><strong class="warn-text">${where} つのプロジェクトで、${total} 枚のカードに使われています。削除するとそのカードも消えます。</strong>` : ''),
     '削除', true);
   if (!ok) return false;

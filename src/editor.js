@@ -1,8 +1,8 @@
 // 編集画面：再生コントロール、ミニタイムライン＋全体波形、（フェーズ4以降）ブロックレーン
 import Sortable from '../node_modules/sortablejs/modular/sortable.complete.esm.js';
-import { esc, fmtTime, easeInOut, promptDialog, newId, pipsHtml } from './ui.js';
-import { stockColumnsHtml, filterChips, bindStock, editTrick } from './stock.js';
-import { openPopover, closePopover, renderPopover, placePopover, popoverCardId } from './popover.js';
+import { esc, fmtTime, easeInOut, openModal, newId, pipsHtml } from './ui.js';
+import { stockColumnsHtml, filterChips, bindStock, editTrick, trickCount } from './stock.js';
+import { openPopover, closePopover, renderPopover, placePopover, popoverCardId, inBlock } from './popover.js';
 import { updateSlot } from './update.js';
 import { icon } from './icons.js';
 import { maxLevel } from './list.js';
@@ -160,7 +160,6 @@ function drawerHtml() {
     <section class="drawer ${open ? 'open' : ''}" id="drawer">
       <div class="drawer-head">
         <button class="drawer-title" data-act="stock-toggle">${icon('layers')}技ストック</button>
-        <span class="sub">全プロジェクト共通 · ${ed.state.stock.tricks.length}技 · ブロックへドラッグして配置</span>
         <span class="spacer"></span>
         <input class="input search" id="stock-q" placeholder="技を検索" aria-label="技を検索" value="${esc(ed.stockQuery ?? '')}">
         <button class="btn" data-act="trick-add">${icon('plus')}技を追加</button>
@@ -240,30 +239,46 @@ const zoomShift = (B) => `translateX(${-(B / ed.project.duration) * 100}%)`;
 // 区切りの前後ループの開始位置（区切りの 4 秒前）
 const loopStart = () => Math.max(0, ed.project.blocks[ed.sel].start - 4);
 
-function cardHtml(c) {
+function cardHtml(c, b) {
   const t = ed.trickMap.get(c.trickId) ?? { name: '（削除された技）', level: 1 };
+  const count = trickCount(t); // 個数は技ストックの値（null ＝ 個数を設定しない技）
+  // 開始時刻（決めていれば表示。ブロックの範囲外なら取り消し線）
+  const time = c.start == null ? '' :
+    `<span class="card-time num ${inBlock(c.start, b) ? '' : 'out'}">${fmtTime(c.start, 1)}〜</span>`;
+  // カードの開始時刻から再生するボタン（カーソルを乗せると出る）。開始時刻がブロック内にあるカードだけ
+  const play = c.start != null && inBlock(c.start, b)
+    ? `<button class="card-play" data-act="card-play" data-t="${c.start}">${icon('play')}頭から再生</button>` : '';
   return `
     <div class="card lv${t.level} ${c.id === ed.newCard ? 'card-new' : ''} ${c.id === popoverCardId() ? 'selected' : ''}"
-      data-card="${c.id}" data-act="card" tabindex="0" aria-label="${esc(t.name)} ${c.count}個（クリックで編集）">
-      <div class="card-top">${pipsHtml(t.level)}<span class="card-count num">${c.count}<small>個</small></span></div>
+      data-card="${c.id}" data-act="card" tabindex="0" aria-label="${esc(t.name)}${count == null ? '' : ` ${count}個`}（クリックで編集）">
+      <div class="card-top">${pipsHtml(t.level)}${time}${count == null ? '' : `<span class="card-count num">${count}<small>個</small></span>`}</div>
       <div class="card-name">${esc(t.name)}</div>
       <div class="card-memo">${esc(c.memo)}</div>
+      ${play}
     </div>`;
 }
 
+// ブロックの難易度（1 安定・2 普通・3 挑戦）。決めていないブロックは「普通」
+export const BLOCK_DIFFS = ['', '安定', '普通', '挑戦'];
+const blockDiff = (b) => b.diff ?? 2;
+
 function blockHtml(b, i) {
+  const d = blockDiff(b);
+  // ブロックのどこをクリックしても設定が開く（カードと「頭から再生」ボタンはそれぞれの操作が優先）
   return `
-    <section class="block ${i === ed.cur ? 'now' : ''}">
-      <button class="bk-head" data-act="block-play" data-i="${i}" title="クリックで頭から再生／ダブルクリックで名前を変更">
-        <span class="bk-no num">${String(i + 1).padStart(2, '0')}</span>
-        <span class="bk-title">
-          <span class="bk-name">${esc(b.name)}</span>
-          <span class="bk-time num">${fmtTime(b.start, 1)} – ${fmtTime(b.end, 1)}<span class="bk-len">${(b.end - b.start).toFixed(1)}秒</span></span>
-        </span>
-        <span class="bk-hint">${icon('play')}頭から再生</span>
-      </button>
+    <section class="block d${d} ${i === ed.cur ? 'now' : ''}" data-act="block-settings" data-i="${i}">
+      <div class="bk-top">
+        <button class="bk-head" data-act="block-settings" data-i="${i}" title="クリックでブロックの設定">
+          <span class="bk-no num">${String(i + 1).padStart(2, '0')}</span>
+          <span class="bk-title">
+            <span class="bk-name">${esc(b.name)} (${BLOCK_DIFFS[d]})</span>
+            <span class="bk-time num">${fmtTime(b.start, 1)} – ${fmtTime(b.end, 1)}<span class="bk-len">${(b.end - b.start).toFixed(1)}秒</span></span>
+          </span>
+        </button>
+        <button class="bk-play" data-act="block-play" data-i="${i}">${icon('play')}頭から再生</button>
+      </div>
       <div class="bk-prog"><i></i></div>
-      <div class="cards">${b.cards.length ? b.cards.map(cardHtml).join('') : '<div class="cards-empty">技をここへドラッグ</div>'}</div>
+      <div class="cards">${b.cards.length ? b.cards.map((c) => cardHtml(c, b)).join('') : '<div class="cards-empty">技をここへドラッグ</div>'}</div>
     </section>`;
 }
 
@@ -281,6 +296,7 @@ export function mountEditor() {
     lastCur: -1,
   };
   ed.played = 0;
+  ed.playingCard = undefined; // 作り直したカードにも「光る」を付け直す
   const s = refs.seek;
   s.addEventListener('pointerdown', () => { ed.seeking = true; });
   s.addEventListener('pointerup', () => { ed.seeking = false; });
@@ -340,10 +356,17 @@ function mountLane() {
     },
     onEnd: dropEnd,
   };
-  for (const el of lane.querySelectorAll('.cards')) Sortable.create(el, { ...common, group: 'cards', draggable: '.card' });
-  // ストック側：コピーして持ち出すだけ（ストックへは戻せない・並べ替えない）
+  const isChips = (s) => s.el.classList.contains('chips');
+  // ブロック：カード同士と、ストックからの技を受け取る
+  for (const el of lane.querySelectorAll('.cards')) {
+    Sortable.create(el, { ...common, group: { name: 'cards', put: ['cards', 'stock'] }, draggable: '.card' });
+  }
+  // ストック：ブロックへはコピーして持ち出す。別の難易度の列へは移動（＝難易度を変える）。カードは受け取らない
   for (const el of document.querySelectorAll('#drawer .chips')) {
-    Sortable.create(el, { ...common, group: { name: 'cards', pull: 'clone', put: false }, sort: false, draggable: '.chip' });
+    Sortable.create(el, {
+      ...common, sort: false, draggable: '.chip',
+      group: { name: 'stock', pull: (to) => (isChips(to) ? true : 'clone'), put: (to, from) => isChips(from) },
+    });
   }
 
   const drawer = document.getElementById('drawer');
@@ -379,6 +402,7 @@ function openCard(id) {
   openPopover(id, {
     find: findCard,
     tricks: () => ed.state.stock.tricks,
+    now: () => ed.audio.currentTime,
     commit: () => { touch(); ed.render(); },
     saveOnly: saveProject,
     remove: removeCard,
@@ -394,6 +418,15 @@ function dropEnd(evt) {
   setTimeout(() => { ed.justDragged = false; });
   holdAutoScroll(false);
   document.body.classList.remove('dragging');
+  // ストックの中で別の難易度の列へ動かした：技の難易度を変える（全プロジェクトのカードにすぐ反映）
+  if (evt.from.classList.contains('chips') && evt.to.classList.contains('chips')) {
+    if (evt.from !== evt.to && !ed.cancelDrag) {
+      ed.state.stock.tricks.find((t) => t.id === evt.item.dataset.trick).level = Number(evt.to.dataset.level);
+      save('stock.json', ed.state.stock);
+    }
+    ed.render();
+    return;
+  }
   // レーンの外で離したら取り消し
   const pt = evt.originalEvent;
   const r = refs.lane.getBoundingClientRect();
@@ -415,10 +448,15 @@ function dropEnd(evt) {
 
   const p = ed.project;
   const byId = new Map(p.blocks.flatMap((b) => b.cards).map((c) => [c.id, c]));
+  const oldBlock = new Map(p.blocks.flatMap((b, i) => b.cards.map((c) => [c.id, i])));
   refs.lane.querySelectorAll('.cards').forEach((el, i) => {
     p.blocks[i].cards = [...el.querySelectorAll(':scope > .card, :scope > .chip')].map((n) => {
-      if (n.dataset.card) return byId.get(n.dataset.card);
-      const c = { id: newId('c'), trickId: n.dataset.trick, count: 3, memo: '' }; // ストックから新しく配置
+      if (n.dataset.card) {
+        const c = byId.get(n.dataset.card);
+        if (oldBlock.get(c.id) !== i) delete c.start; // 別のブロックへ動かしたら開始時刻は解除（前のブロックの時刻なので）
+        return c;
+      }
+      const c = { id: newId('c'), trickId: n.dataset.trick, memo: '' }; // ストックから新しく配置
       ed.newCard = c.id;
       return c;
     });
@@ -504,6 +542,19 @@ function update() {
   const prog = Math.min(1, Math.max(0, (t - cb.start) / (cb.end - cb.start)));
   if (refs.progs[ed.cur]) refs.progs[ed.cur].style.transform = `scaleX(${prog})`;
 
+  // 今のカード：現在ブロックの中で、開始時刻が今を過ぎている中でいちばん遅いカードを光らせる
+  if (refs.lane) {
+    let id = null, best = -1;
+    for (const c of cb.cards) {
+      if (c.start != null && inBlock(c.start, cb) && c.start <= t + 0.005 && c.start > best) { best = c.start; id = c.id; }
+    }
+    if (id !== ed.playingCard) {
+      refs.lane.querySelector('.card.playing')?.classList.remove('playing');
+      if (id) refs.lane.querySelector(`[data-card="${id}"]`)?.classList.add('playing');
+      ed.playingCard = id;
+    }
+  }
+
   if (ed.cur !== refs.lastCur) {
     const b = p.blocks[ed.cur];
     const first = refs.lastCur === -1; // 画面を作った直後は自動スクロールしない
@@ -537,6 +588,12 @@ export function editorAction(act, el) {
     if (refs.lane) autoScroll(true);
   }
   else if (act === 'card') { if (!ed.justDragged) openCard(el.dataset.card); }
+  else if (act === 'card-play') {
+    // カードの開始時刻から再生（ブロックの「頭から再生」と同じく、そのブロックが見える位置へスクロール）
+    seek(Number(el.dataset.t), true);
+    if (refs.lane) autoScroll(true);
+  }
+  else if (act === 'block-settings') { if (!ed.justDragged) blockSettings(Number(el.dataset.i)); }
   else if (act === 'stock-toggle') {
     // 作り直さずにクラスだけ切り替える（高さのアニメーションを見せるため）
     const open = document.getElementById('drawer').classList.toggle('open');
@@ -645,17 +702,42 @@ export function editorKey(e) {
   return false;
 }
 
-// 見出しのダブルクリックでブロック名を変更。変更したら true
-export async function editorDblClick(e) {
-  const head = e.target.closest('.bk-head');
-  if (!head) return false;
-  const b = ed.project.blocks[Number(head.dataset.i)];
-  ed.audio.pause(); // ダブルクリックの 1 回目のクリックで再生が始まるので止める
-  const name = await promptDialog('ブロック名を変更', b.name);
-  if (!name) return false;
-  b.name = name;
-  touch();
-  return true;
+// ブロックの設定（名前と難易度）。ブロックをクリックすると開く
+function blockSettings(i) {
+  const b = ed.project.blocks[i];
+  let diff = blockDiff(b);
+  const m = openModal(`
+    <h2>ブロックの設定</h2>
+    <div class="field"><label for="bk-name">ブロック名</label><input id="bk-name" class="input" value="${esc(b.name)}" autofocus></div>
+    <div class="field"><label>難易度</label>
+      <div class="diff-pick">${[1, 2, 3].map((d) =>
+        `<button class="diff-opt d${d}" data-d="${d}" aria-pressed="${d === diff}">${BLOCK_DIFFS[d]}</button>`).join('')}
+      </div></div>
+    <p class="err"></p>
+    <div class="actions"><button class="btn" data-act="cancel">キャンセル</button>
+    <button class="btn primary" data-act="ok">保存</button></div>`, { width: 480 });
+  const name = m.el.querySelector('#bk-name');
+  const err = m.el.querySelector('.err');
+  name.select();
+  const ok = () => {
+    const v = name.value.trim();
+    if (!v) { err.textContent = 'ブロック名を入力してください'; return; }
+    b.name = v;
+    b.diff = diff;
+    m.close();
+    touch();
+    ed.render();
+  };
+  m.el.addEventListener('click', (e) => {
+    const opt = e.target.closest('.diff-opt');
+    if (opt) {
+      diff = Number(opt.dataset.d);
+      m.el.querySelectorAll('.diff-opt').forEach((x) => x.setAttribute('aria-pressed', x === opt));
+    }
+    if (e.target.closest('[data-act=ok]')) ok();
+  });
+  name.addEventListener('input', () => { err.textContent = ''; });
+  name.addEventListener('keydown', (e) => { if (e.key === 'Enter') ok(); });
 }
 
 // ===== 元に戻す／やり直し =====

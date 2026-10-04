@@ -1,6 +1,6 @@
 {
   "name": "setori-board",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ジャグリングの演技構成ボード",
   "main": "main.js",
   "private": true,
