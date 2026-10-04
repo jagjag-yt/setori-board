@@ -59,7 +59,7 @@ npm test
 npm run dist
 ```
 
-`dist\setori-board Setup <版>.exe` ができる。ダブルクリックでインストールされる（ユーザー単位、管理者権限は不要）。
+`dist\setori-board-Setup-<版>.exe` ができる。ダブルクリックでインストールされる（ユーザー単位、管理者権限は不要）。
 コード署名をしていないため、初回は Windows SmartScreen の警告が出る。「詳細情報」→「実行」で進める。
 
 ## 新しい版を配布する（自動アップデート）
@@ -70,17 +70,14 @@ npm run dist
 新しい版の出し方：
 
 1. `package.json` の `"version"` を上げる（例 `0.1.0` → `0.2.0`）
-2. PowerShell で次の 2 行を実行する（GitHub CLI でログイン済みであること）
-
-```bash
-$env:GH_TOKEN = (gh auth token)
-```
+2. 変更をコミットして push する
+3. 次のコマンドを実行する（GitHub CLI `gh` でログイン済みであること）
 
 ```bash
 npm.cmd run release
 ```
 
-ビルドしたインストーラが GitHub Releases に公開され、インストール済みのアプリが次の起動時に気づく。
+インストーラをビルドし、`gh` で GitHub Releases に公開する（`scripts/release.mjs`）。インストール済みのアプリは次の起動時に気づく。
 
 ## メモ
 
